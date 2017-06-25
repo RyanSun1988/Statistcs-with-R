@@ -1,0 +1,73 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+Because this is only a observational study, causal conclusions cannot be made. Random selecting has been used to collect data, so the inference of the collected data can be generalized into the population. 
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**The mean and standard deviation of the number of days that physical or mental health is not good or poor under each income level.
+I'd like to know if the income level have a seirous impact on the number of days that physical or mental health is not good or poor. If there's an impact, what kind of influence does the income have.
+
+**Research quesion 2:**What percentage of people cannot see a docoter because of the cost in each income level?
+I'd like to know if the medical care can cover most people who need it.
+
+**Research quesion 3:**Does smoking has a relation to cancer and mental health?
+I'd like to know if people with poor mental health tend to smoke and whether smoking will lead to cancer.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+**Research quesion 1:**
+
+```{r}
+
+```
+
+
+
+**Research quesion 2:**
+
+```{r}
+
+```
+
+
+
+**Research quesion 3:**
+
+```{r}
+
+```
+

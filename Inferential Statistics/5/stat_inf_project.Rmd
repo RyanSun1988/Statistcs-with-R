@@ -1,0 +1,101 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `gss`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+1, How the observations in the sample are collected:
+a, The vast majority of GSS data is obtained in face-to-face interviews. Computer-assisted personal interviewing (CAPI) began in the 2002 GSS. Under some conditions when it has proved difficult to arrange an in-person interview with a sampled respondent, GSS interviews may be conducted by telephone.
+b, The GSS has transitioned from a replicating cross-sectional design to a design that uses rotating panels. Under the new three-wave, rotating panel design in each round of the GSS, a new panel is started, the first reinterview from the previous GSS is conducted, and the second and final reinterview from the GSS panel started four years ago is conducted. In 2008 there were two components: a new 2008 cross-section with 2,023 cases and the first re-interviews (panel) with 1,536 respondents from the 2006 GSS. The 2,023 cases in the cross-section have been previously released as a part of the 1972-2008 cumulative data. This new release includes those 1,536 re-interviewed panel cases along with the 2,023 cases. In 2010 the new rolling panel design was fully implemented for the first time.
+
+2, Since it's not an experiment, we cannot draw a conclusion on causality. As we can see, the samples are randomly selected, so we can generalize the conclusion to the population.
+
+
+* * *
+
+## Part 2: Research question
+Research question: How does people's life change economically from 2010 to 2012? 
+To study this question, I'll see the following changes in the sample:
+1, What is the respondent's opinion on the family income?
+2, How does the percentage of unemployment of the last 10 years change?
+
+why this question is of interest to me: I'd like to know if people has enjoyed their life better.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+```{r}
+# First, we need to filter the data of 2010 and 2012.
+gss_1012 <- gss %>% filter(year>=2010,!is.na(finrela),!is.na(unemp))
+# Next, let's see how people's opinion on the family income like respectively in 2010 and 2012.
+gss_1012 %>% group_by(year) %>% summarise(FBA_Rate=sum(finrela=="Far Below Average")/n(),BA_Rate=sum(finrela=="Below Average")/n(),A_Rate=sum(finrela=="Average")/n(),AA_Rate=sum(finrela=="Above Average")/n(),FAA_Rate=sum(finrela=="Far Above Average")/n())
+# We cannot tell if the respondent's life become any better in 2012 compared to 2010, since both the rate of far above average and the rate of far below the average rise.
+# Then, we can check if the percentage of unemployment of the last 10 years changes?
+gss_1012 %>% group_by(year) %>% filter(!is.na(unemp)) %>% summarise(unemp_Rate=sum(unemp=="Yes")/n())
+ggplot(data = gss_1012,aes(x=year,fill=unemp))+geom_bar()
+#We can see that the unemployment rate has droped from 37.92% to 36.03%.
+```
+
+
+* * *
+
+## Part 4: Inference
+
+
+```{r}
+# 1st,State hypotheses:
+# H0: The family income and the year is independant,the difference in each income level is competely due to chance.
+# HA: The family income and the year is dependant, the family income has increased from 2010 to 2012.
+
+# 2nd, Check conditions:
+#(1) independence, samples are random samples, and 2679 is obviously less than 10% of the population. Each sample only contribute to one cell.
+#(2)Sample size:
+gss_1012 %>% group_by(year) %>% summarise(FBA=sum(finrela=="Far Below Average"),BA=sum(finrela=="Below Average"),A=sum(finrela=="Average"),AA=sum(finrela=="Above Average"),FAA=sum(finrela=="Far Above Average"))
+# From the table, we can see that every cell is larger than 5.
+
+# 3nd, State the method(s) to be used and why and how: 
+# Method: I'll use the chi-square test of independence to see if the difference of the family income between 2010 and 2012 is significant.
+# Reason: There are 2 groups and 5 variables, and this is a proportion problem.
+# I'll assume the difference is due to chance, and see if the difference is significant.
+
+# 4th, Perform inference:
+# The overall ratio of 2010: (98+394+588+242+36)/2679=50.6906%
+# The overall ratio of 2012:49.3094%
+# The expected counts for 2010: FBR (98+107)*50.6906%=104,BA (394+378)*50.6906%=391, A (588+569)*50.6906%=586, AA (242+230)*50.6906%=239, FAA (36+37)*50.6906%=37
+# The expected counts for 2012: FBR (98+107)*49.3094%=101,BA (394+378)*49.3094%=381, A (588+569)*49.3094%=571, AA (242+230)*49.3094%=233, FAA (36+37)*49.3094%=36
+#Chi-square:0.8941, df=(2-1)*(5-1)=4
+pchisq(0.8941, 4, lower.tail = FALSE)
+# The p value is 92.54%, so there's a big chance that the difference is completely due to chance.
+```
+

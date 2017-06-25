@@ -1,0 +1,151 @@
+---
+title: "Modeling and prediction for movies"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(GGally)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `movies`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("movies.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+The data set is comprised of 651 randomly sampled movies produced and released before 2016.
+Since the samples are ramdomly selected, the inference can be generalized to the population.
+And because no ramdomly assignment is used, so it's not an experiment. Because of that, no causal conclusion should be made.
+
+
+* * *
+
+## Part 2: Research question
+What factors could affect the score of a movie given by the audience? 
+how much influence do they have on the popularity of a movie?
+Do the critics have a different opinion with the audiences on the same movie? 
+
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+NOTE: Insert code chunks as needed by clicking on the "Insert a new code chunk" 
+button above. Make sure that your code is visible in the project you submit. 
+Delete this note when before you submit your work.
+
+```{r}
+movies <- movies %>% mutate(score_dif=critics_score-audience_score)
+qqnorm(movies$score_dif)
+#We can tell from the plot that, there's only some minor skew. Since the samples are ramdomly selected, so we can say that the distribution of the difference in score is close to normal.
+movies %>% summarise(mean(score_dif),sd(score_dif))
+pt((mean(movies$score_dif)-0)/(sd(movies$score_dif)/sqrt(651)),(651-1))
+#Since the p-value is pretty small, so we can refuse the null hypothesis. The opinion of the critics and the audiences are different. We will try to figure out whether there's a connection between the score of critics and the audience in the next part.
+
+```
+
+* * *
+
+## Part 4: Modeling
+
+```{r}
+#Let's filter some extreme value first.
+movies_no_na <- movies %>% filter(!is.na(dvd_rel_month),runtime>70,runtime<180,studio!="GreyCat Films")
+
+#And for the sake of making a better model, we can change two character variables into numeric variables.
+movies_no_na$best_actress_win <- as.character(movies_no_na$best_actress_win)
+movies_no_na$best_actress_win[movies_no_na$best_actress_win %in% c("yes")] <- 1
+movies_no_na$best_actress_win[movies_no_na$best_actress_win %in% c("no")] <- 0
+movies_no_na$best_actress_win <- as.numeric(movies_no_na$best_actress_win)
+
+movies_no_na$best_actor_win <- as.character(movies_no_na$best_actor_win)
+movies_no_na$best_actor_win[movies_no_na$best_actor_win %in% c("yes")] <- 1
+movies_no_na$best_actor_win[movies_no_na$best_actor_win %in% c("no")] <- 0
+movies_no_na$best_actor_win <- as.numeric(movies_no_na$best_actor_win)
+
+#We are gonna create a variable, which indicates whether or not there's a actor or actress ever win an Oscar.
+movies_no_na <- movies_no_na %>% mutate( best_actor_actress_win = best_actor_win + best_actress_win )
+
+#Since we are focusing on predicting the audience score before a movie is made, for the purpose of helping people make a better decision on how to make a movie. Following variables will be used: title_type, genre, mpaa_rating, best_dir_win, runtime, dvd_rel_month, thtr_rel_month, best_actor_win, best_actress win,  studio, critics_score.
+#Since it take too much pages to show step by step to choose which variable to use, we will jump to the final step to show the result.
+m1 <- lm(audience_score ~  title_type+genre +mpaa_rating + best_dir_win +runtime  +dvd_rel_month + thtr_rel_month  + best_actor_actress_win + studio +critics_score, data = movies_no_na)
+summary(m1)
+anova(m1)
+ggplot(data = m1,aes(x=.fitted, y=.resid))+geom_point()
+
+#Since there's not any abvious linear relationship.
+
+#We will transform three variables, which I learned from peer review. I'm pretty ambarrassed, because I don't know how to check the name of project. Sorry for that.
+
+movies_no_na$runtime_convert<-cut(movies_no_na$runtime, c(0,90,120,150,999) ,labels = c('Short','Medium','Long', 'Very long'))
+movies_no_na$thtr_rel_quarter_convert<-cut(movies_no_na$thtr_rel_month, c(0,3,6,9,12) ,labels = c('Q1','Q2','Q3','Q4'))
+movies_no_na$dvd_rel_quarter_convert<-cut(movies_no_na$dvd_rel_month, c(0,3,6,9,12) ,labels = c('Q1','Q2','Q3','Q4'))
+
+
+m_final <- lm(audience_score ~  title_type+genre +mpaa_rating + best_dir_win +runtime_convert +dvd_rel_quarter_convert + thtr_rel_quarter_convert + best_actor_actress_win + studio + critics_score, data = movies_no_na)
+summary(m_final)
+anova(m_final)
+#Now let's check the conditions again.
+ggplot(data = m_final,aes(x=.fitted, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=title_type, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=genre, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=mpaa_rating, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=best_actor_actress_win, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=runtime_convert, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=dvd_rel_quarter_convert, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=thtr_rel_quarter_convert, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=studio, y=.resid))+geom_point()
+ggplot(data = m_final,aes(x=critics_score, y=.resid))+geom_point()
+ggplot(data = m_final,aes(sample=.resid))+stat_qq()
+#The conditions seem to fit for me. 
+
+
+```
+
+* * *
+
+## Part 5: Prediction
+
+
+```{r}
+#I have choosen the movie Zootopia and FURIOUS7. Here is the rottentomatoes link: 
+#Zootopia: https://www.rottentomatoes.com/m/zootopia
+Zootopia <- data.frame(title_type= "Feature Film", mpaa_rating="PG",genre="Comedy" ,best_dir_win="yes", runtime_convert="Medium",dvd_rel_quarter_convert="Q2",studio="Walt Disney Pictures", thtr_rel_quarter_convert="Q3", best_actor_actress_win=0, critics_score=98)
+predict(m_final, Zootopia)
+predict(m_final, Zootopia, interval = "prediction", level = 0.95)
+#The actual audience score is 92, so that is a bad prediction.
+
+#FURIOUS7: https://www.rottentomatoes.com/m/furious_7
+FURIOUS7 <- data.frame(title_type= "Feature Film", mpaa_rating="PG-13",genre="Mystery & Suspense" ,best_dir_win="no", runtime_convert="Long",dvd_rel_quarter_convert="Q3",studio="Universal Pictures", thtr_rel_quarter_convert="Q4", best_actor_actress_win=0, critics_score=79)
+predict(m_final, FURIOUS7)
+predict(m_final, FURIOUS7, interval = "prediction", level = 0.95)
+#The actual audience score is 82, so that is a fair prediction.
+```
+
+* * *
+
+## Part 6: Conclusion
+
+Findings: Audience tend to like feature film, which is musical or performing Arts, rated as PG-13, with one of the main actors in the movie ever won an Oscar. And people tend to like longer movies and watch them at the end of the year. films made by studioNewmarket films are most popular. Also, it would be a good idea to ask for the critics's opinion before starting.
+Defect: The model does not seems to work for all the movies, and the  invterval seems too wide.

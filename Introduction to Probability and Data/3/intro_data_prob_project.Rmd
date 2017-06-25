@@ -1,0 +1,153 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+html_document: 
+fig_height: 4
+highlight: pygments
+theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+Because this is only a observational study, causal conclusions cannot be made. 
+
+Since 2011, BRFSS conducts both landline telephone- and cellular telephone-based surveys. In conducting the BRFSS landline telephone survey, interviewers collect data from a randomly selected adult in a household. In conducting the cellular telephone version of the BRFSS questionnaire, interviewers collect data from an adult who participates by using a cellular telephone and resides in a private residence or college housing.
+
+Random selecting has been used to collect data, so the inference of the collected data can be generalized into the population. 
+
+Since it's impossible to include the people who does not have a residence with the current resort, so that's what need to be considered when generabize the inference.
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**The mean and standard deviation of the number of days that physical or mental health is not good or poor under each income level.
+
+I'd like to know if the income level have a seirous impact on the number of days that physical or mental health is not good or poor. If there's an impact, what kind of influence does the income have.
+
+**Research quesion 2:**How many people cannot see a docoter because of the cost in each income level?
+
+I'd like to know if the medical care can cover most people who need it.
+
+**Research quesion 3:**Does smoking has a relation to cancer and mental health?
+
+I'd like to know if smoking will lead to cancer.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+**Research quesion 1:**
+
+First, I need to know how many days people have when their mental or physical health is not good or poor.
+```{r}
+brfss2013 <- brfss2013 %>% mutate(phy_men_hel_NGAP=physhlth+menthlth+poorhlth) %>% filter(!is.na(physhlth),!is.na(menthlth),!is.na(poorhlth))
+
+```
+
+Then we need to see, on each income level, what is the mean and standard deviation of the days people have when their mental or physical health is not good or poor
+```{r}
+brfss2013 %>% group_by(income2) %>% summarise(count=n(),mean_PMHNGAP=mean(phy_men_hel_NGAP),sd_PMHNGAP=sd(phy_men_hel_NGAP))
+
+```
+
+To be sure, we can see it in the box plot.
+```{r}
+brfss2013_Nona <- brfss2013 %>% filter(!is.na(income2),!is.na(phy_men_hel_NGAP))
+ggplot(data=brfss2013_Nona, aes(y=phy_men_hel_NGAP,x=income2))+geom_boxplot()
+
+```
+
+As we can see from the data summary, when the annual household income increases, people have fewer days that physical and mental  health are not good or poor. And with the increase of income level, the gap of the number of days that physical and mental  health are not good or poor in each income level reduces. 
+
+The figure above illustrates the same comparison.
+
+
+**Research quesion 2:**
+
+First, we need to delete the observations with no data in the variable "medcost".
+```{r}
+brfss2013_nodoc_cost_no_na <- brfss2013 %>% filter(!is.na(medcost))
+
+```
+
+Then, we need to see what is the percentage of people cannot see a doctor because of cost, in each income level.
+```{r}
+brfss2013_nodoc_cost_no_na <- brfss2013 %>% filter(!is.na(medcost))
+brfss2013_nodoc_cost_no_na %>% group_by(income2) %>% summarise(nodoc_cost_rate=sum(medcost=="Yes")/n())
+
+```
+
+Let's see if the plot can share the same conclusion.
+```{r}
+ggplot(data=brfss2013_nodoc_cost_no_na,aes(x =income2,fill=medcost))+geom_bar()
+brfss2013_nodoc_cost <- brfss2013 %>% filter(medcost=="Yes")
+ggplot(data=brfss2013_nodoc_cost,aes(x=income2))+geom_bar()
+```
+
+With the increase of income, there are fewer people who cannot get access to the medical care because of the cost. But the cost of medical care is always a problem for all the income levels, since there are some people cannot see a doctor because of the cost for the highest level of income.
+
+We can see from the figure above that with the remarkable increase of the population with higher income level, the number of people who could not see a doctor because of cost does not change much. Which in return, illustrates the same comparison.
+
+**Research quesion 3:**
+
+1st, we need to delete the observations with no data in the variable "chcscncr" and "chcocncr".
+```{r}
+brfss2013_cancer <- brfss2013 %>% filter(!is.na(chcscncr))
+brfss2013_cancer <- brfss2013_cancer %>% filter(!is.na(chcocncr))
+```
+
+2nd, if a person is suffering or ever suffered skin cancer, variable "skincancer" is marked 1. if not, variable is marked 0.
+```{r}
+brfss2013_cancer <- brfss2013_cancer %>% mutate(skincancer=ifelse(chcscncr=="Yes",1,0))
+```
+
+3rd, if a person is suffering or ever suffered a cancer that is not skin cancer, variable "othercancer" is marked 1. if not, variable is marked 0.
+```{r}
+brfss2013_cancer <- brfss2013_cancer %>% mutate(othercancer=ifelse(chcocncr=="Yes",1,0))
+```
+
+4th, I add up the variable "skincancer" and variable "othercancer". If a person is suffering or ever suffered one kind of cancer, variable "cancer" is marked 1. If a person is suffering or ever suffered skin cancer and other cancer, the varible "cancer" is marked 2. If a person never suffer from any kind of cancer, the variable "cancer" is marked 0.
+```{r}
+brfss2013_cancer <- brfss2013_cancer %>% mutate(cancer=skincancer+othercancer)
+```
+
+5th, let's see the ratio people get a cancer across each smoking frequency level.
+```{r}
+brfss2013_cancer %>% group_by(X_smoker3) %>% summarise(count=n(),cancer_rate=sum(cancer>=1)/n())
+```
+
+6th, Let's see if the people who ever suffered from a cancer has different smoking habits with those who never suffer from a cancer.
+```{r}
+brfss2013_never_cancer <- brfss2013_cancer %>% filter(cancer==0)
+ggplot(data=brfss2013_never_cancer, aes(x=X_smoker3))+geom_bar()
+brfss2013_skin_cancer_or_other_cancer <- brfss2013_cancer %>% filter(cancer==1)
+ggplot(data=brfss2013_skin_cancer_or_other_cancer, aes(x=X_smoker3))+geom_bar()
+brfss2013_skin_cancer_and_other_cancer <- brfss2013_cancer %>% filter(cancer==2)
+ggplot(data=brfss2013_skin_cancer_and_other_cancer, aes(x=X_smoker3))+geom_bar()
+```
+
+Former smoker have the highest ratio that ever be told had a cancer, but the ratio of people who are caught by the cancer does not have remarkable difference between the current smoker and non-smoker. We cannot draw a clear conclusion that the smoking will lead to cancer with the current data.
+
+The figure above illustrates the same comparison.
